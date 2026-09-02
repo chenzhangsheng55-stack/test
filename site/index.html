@@ -39,7 +39,6 @@ input{font:inherit;color:inherit}
   background:linear-gradient(160deg,var(--brand) 0%,#0c6f66 100%);
   color:#fff;border-radius:22px;padding:30px 24px 26px;box-shadow:var(--shadow);
 }
-.hero .kicker{font-size:13px;letter-spacing:.22em;opacity:.72;margin-bottom:10px}
 .hero h1{margin:0 0 6px;font-size:27px;line-height:1.35;font-weight:700;letter-spacing:.01em}
 .hero p{margin:0;font-size:14px;opacity:.85;line-height:1.75}
 .specs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0 0}
@@ -197,7 +196,6 @@ input{font:inherit;color:inherit}
 <!-- ======== 封面 ======== -->
 <section id="start"><div class="wrap">
   <div class="hero">
-    <div class="kicker">2 0 2 7 年 护 考</div>
     <h1>基础护理 · 中医基础<br>随机模拟测验</h1>
     <p>每次进入自动抽取新试卷 · 手机端可直接作答</p>
   </div>
@@ -211,7 +209,6 @@ input{font:inherit;color:inherit}
     <ul class="rules">
       <li>单项选择题 <b>28</b> 道，每题 <b>3</b> 分，共 84 分；选项顺序每次随机打乱。</li>
       <li>填空大题 <b>2</b> 道，每道 8 个空、<b>每空 1 分</b>，共 16 分，按空给分。</li>
-      <li>题目从题库中<b>顺序不重复</b>地抽取，连续刷新不会抽到相同的题。</li>
       <li>不限时，交卷后立即显示分数、正确答案与解析。</li>
     </ul>
     <div id="histBox" style="display:none;margin-top:14px">
@@ -222,8 +219,7 @@ input{font:inherit;color:inherit}
   </div>
   <div class="foot">
     题目源自《第1章 基础护理知识与技能》赵玉香、邵振华<br>
-    《第18章 中医基础知识》王晶 · 背诵讲义（试行稿）<br>
-    题库共 <span id="bankN">—</span> 道选择题 · <span id="fillN">—</span> 道填空大题
+    《第18章 中医基础知识》王晶 · 背诵讲义（试行稿）
   </div>
 </div></section>
 
@@ -272,9 +268,6 @@ var BANK = [];
 var FILL = (typeof FILL_BANK!=="undefined") ? FILL_BANK : [];
 
 var N_MCQ = 28, PT_MCQ = 3, N_FILL = 2, PT_FILL = 8;
-
-document.getElementById("bankN").textContent = BANK.length;
-document.getElementById("fillN").textContent = FILL.length;
 
 /* ---------- 存储（隐私模式下自动降级） ---------- */
 var LS = (function(){
