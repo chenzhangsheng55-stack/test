@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 校验题库（空位数与答案数必须一致）
         run: python3 scripts/check_bank.py
@@ -29,7 +29,7 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: 打包站点
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: site
 
