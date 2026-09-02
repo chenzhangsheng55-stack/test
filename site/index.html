@@ -11,7 +11,8 @@
   --bg:#f5f7f6; --card:#ffffff; --ink:#16221f; --ink2:#5b6b66; --ink3:#8c9a95;
   --line:#e3e9e7; --brand:#0f8a7e; --brand-soft:#e6f4f1; --brand-ink:#0a6a60;
   --ok:#12855f; --ok-soft:#e4f5ec; --bad:#c4443c; --bad-soft:#fdeceb;
-  --warn:#b7791f; --shadow:0 1px 2px rgba(16,40,36,.05),0 8px 24px rgba(16,40,36,.06);
+  --warn:#b7791f; --warn-soft:#fdf2df;
+  --shadow:0 1px 2px rgba(16,40,36,.05),0 8px 24px rgba(16,40,36,.06);
   --r:16px;
 }
 @media (prefers-color-scheme:dark){
@@ -19,7 +20,8 @@
     --bg:#111614; --card:#182220; --ink:#e8efec; --ink2:#a3b3ae; --ink3:#788b85;
     --line:#26332f; --brand:#3fb9a8; --brand-soft:#12312d; --brand-ink:#7fd8ca;
     --ok:#4cc38a; --ok-soft:#12312a; --bad:#f0736a; --bad-soft:#3a1f1d;
-    --warn:#e0b062; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.28);
+    --warn:#e0b062; --warn-soft:#33280f;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.28);
   }
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -165,7 +167,37 @@ input{font:inherit;color:inherit}
 }
 .ring .num b{font-size:44px;line-height:1;font-weight:700;font-variant-numeric:tabular-nums}
 .ring .num span{font-size:12px;color:var(--ink3);margin-top:5px;letter-spacing:.1em}
-.verdict{font-size:16px;font-weight:600;margin-top:6px}
+.gbadge{
+  display:inline-flex;align-items:baseline;gap:9px;margin-top:12px;
+  padding:8px 20px;border-radius:999px;font-size:13px;font-weight:600;letter-spacing:.14em;
+}
+.gbadge b{font-size:24px;line-height:1;letter-spacing:0}
+.gbadge.ga{background:var(--ok-soft);color:var(--ok)}
+.gbadge.gb{background:var(--warn-soft);color:var(--warn)}
+.gbadge.gc{background:var(--bad-soft);color:var(--bad)}
+.verdict{font-size:16px;font-weight:600;margin-top:10px}
+.viol{
+  margin-top:14px;padding:11px 14px;border-radius:12px;background:var(--bad-soft);
+  color:var(--bad);font-size:13.5px;line-height:1.7;text-align:left;
+}
+
+/* 监考弹窗 */
+#guard{position:fixed;inset:0;z-index:60;display:none}
+#guard.on{display:block}
+#guard .mask{position:absolute;inset:0;background:rgba(8,20,18,.62)}
+#guard .box{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(340px,calc(100vw - 44px));background:var(--card);border-radius:18px;
+  padding:24px 20px 20px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3);
+}
+#guard .ic{font-size:34px;line-height:1}
+#guard h3{margin:12px 0 8px;font-size:17px}
+#guard p{margin:0;font-size:14.5px;line-height:1.8;color:var(--ink2)}
+#guard p b{color:var(--bad);font-size:17px}
+#guard button{
+  margin-top:18px;width:100%;padding:14px;border-radius:12px;
+  background:var(--brand);color:#fff;font-size:16px;font-weight:600;
+}
 .brk{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--line);border-radius:14px;overflow:hidden;margin-top:20px}
 .brk div{background:var(--card);padding:13px 6px}
 .brk b{display:block;font-size:18px;font-variant-numeric:tabular-nums}
@@ -209,7 +241,8 @@ input{font:inherit;color:inherit}
     <ul class="rules">
       <li>单项选择题 <b>28</b> 道，每题 <b>3</b> 分，共 84 分；选项顺序每次随机打乱。</li>
       <li>填空大题 <b>2</b> 道，每道 8 个空、<b>每空 1 分</b>，共 16 分，按空给分。</li>
-      <li>不限时，交卷后立即显示分数、正确答案与解析。</li>
+      <li>不限时，交卷后立即显示分数、等级与解析：<b>80 分及以上 A</b>、60～79 分 B、60 分以下 C。</li>
+      <li>答题期间<b>请勿切换到其他应用或页面</b>，累计切屏 <b>3</b> 次将自动交卷。</li>
     </ul>
     <div id="histBox" style="display:none;margin-top:14px">
       <h2 style="margin-bottom:8px">最近成绩</h2>
@@ -243,6 +276,13 @@ input{font:inherit;color:inherit}
   <div class="lg">深色＝已作答 · 浅色＝填空题部分作答 · 点击跳转</div>
   <div class="grid" id="gridBox"></div>
   <button class="btn" id="closeSheet" style="background:var(--brand-soft);color:var(--brand-ink);box-shadow:none">收 起</button>
+</div></div>
+
+<div id="guard"><div class="mask"></div><div class="box">
+  <div class="ic" id="guardIc">⚠️</div>
+  <h3 id="guardTitle">检测到离开答题页面</h3>
+  <p id="guardText"></p>
+  <button id="guardBtn">继 续 答 题</button>
 </div></div>
 
 <!-- ======== 成绩 ======== -->
@@ -309,6 +349,11 @@ function draw(key,total,n){
 /* ---------- 组卷 ---------- */
 var paper = null, startTime = 0, timer = null;
 
+/* 监考：切屏累计到 SWITCH_LIMIT 次自动交卷。
+   浏览器无法阻止用户切走，只能在页面重新可见时发现并处置。 */
+var SWITCH_LIMIT = 3;
+var examing = false, switchCount = 0, forcedSubmit = false;
+
 function buildPaper(){
   var mi = draw("hk_deck_mcq", BANK.length, N_MCQ);
   var fi = draw("hk_deck_fill", FILL.length, N_FILL);
@@ -369,7 +414,10 @@ function updateProgress(){
   paper.mcq.forEach(function(q){ if(q.pick!==null) done++; });
   paper.fill.forEach(function(f){ if(f.vals.some(function(v){ return v.trim()!==""; })) done++; });
   var tot = N_MCQ + paper.fill.length;
-  document.getElementById("sub").textContent = "已作答 " + done + " / " + tot + " 题";
+  var sub = document.getElementById("sub");
+  sub.textContent = "已作答 " + done + " / " + tot + " 题"
+                  + (switchCount ? "　·　切屏 " + switchCount + "/" + SWITCH_LIMIT : "");
+  sub.style.color = switchCount ? "var(--bad)" : "";
   document.getElementById("progIn").style.width = (done/tot*100) + "%";
 }
 
@@ -418,6 +466,41 @@ document.getElementById("gridBox").addEventListener("click", function(e){
   if(el) el.scrollIntoView({behavior:"smooth", block:"start"});
 });
 
+/* ---------- 监考 ---------- */
+var guard = document.getElementById("guard");
+function showGuard(over){
+  closeSheet();
+  document.getElementById("guardIc").textContent = over ? "⛔" : "⚠️";
+  document.getElementById("guardTitle").textContent = over ? "切屏次数已用完，自动交卷" : "检测到离开答题页面";
+  document.getElementById("guardText").innerHTML = over
+    ? "本次答题共切屏 <b>" + switchCount + "</b> 次，已达上限，试卷自动提交。"
+    : "已切屏 <b>" + switchCount + "</b> 次，还可切屏 " + (SWITCH_LIMIT - switchCount) +
+      " 次；累计满 " + SWITCH_LIMIT + " 次将自动交卷。";
+  document.getElementById("guardBtn").textContent = over ? "查 看 成 绩" : "继 续 答 题";
+  guard.classList.add("on");
+}
+document.getElementById("guardBtn").addEventListener("click", function(){
+  guard.classList.remove("on");
+  if(forcedSubmit){
+    forcedSubmit = false;
+    if(timer) clearInterval(timer);
+    gradeAndShow();
+  }
+});
+document.addEventListener("visibilitychange", function(){
+  if(!examing) return;
+  if(document.hidden){
+    switchCount++;
+    updateProgress();
+  }else if(switchCount >= SWITCH_LIMIT){
+    examing = false;
+    forcedSubmit = true;
+    showGuard(true);
+  }else{
+    showGuard(false);
+  }
+});
+
 /* ---------- 填空判分 ---------- */
 var UNIT = /(ml|cm|mm|kpa|mmhg|min|小时|分钟|秒|次|天|个|毫升|厘米|分)$/;
 function norm(s){
@@ -461,7 +544,7 @@ function gradeAndShow(){
   var total = Math.round((mScore + fScore)*10)/10;
 
   var hist = load("hk_hist", []);
-  hist.unshift({s:total, d:Date.now()});
+  hist.unshift({s:total, g:gradeOf(total), d:Date.now()});
   save("hk_hist", hist.slice(0,8));
 
   showResult(total, mScore, fScore, fDetail);
@@ -473,11 +556,13 @@ document.getElementById("submit").addEventListener("click", function(){
   paper.fill.forEach(function(f){ f.vals.forEach(function(v){ if(v.trim()==="") un++; }); });
   var msg = un>0 ? ("还有 " + un + " 处未作答，确定交卷吗？") : "确定交卷吗？";
   if(!confirm(msg)) return;
+  examing = false;
   if(timer) clearInterval(timer);
   gradeAndShow();
 });
 
 /* ---------- 成绩页 ---------- */
+function gradeOf(s){ return s>=80 ? "A" : (s>=60 ? "B" : "C"); }
 function fmtTime(ms){
   var s = Math.floor(ms/1000), m = Math.floor(s/60);
   return (m<10?"0":"")+m+":"+((s%60)<10?"0":"")+(s%60);
@@ -493,6 +578,8 @@ function showResult(total, mScore, fScore, fDetail){
               : total>=80 ? "不错，错的都是细节数字"
               : total>=60 ? "及格了，把错题过一遍"
               : "先把错题的解析看完，再来一套";
+  var g = gradeOf(total);
+  var gWord = g==="A" ? "优秀" : (g==="B" ? "良好" : "不及格");
   var C = 2*Math.PI*66, off = C*(1-total/100);
   var color = total>=60 ? "var(--brand)" : "var(--bad)";
 
@@ -503,7 +590,13 @@ function showResult(total, mScore, fScore, fDetail){
          '<circle cx="75" cy="75" r="66" fill="none" stroke="'+color+'" stroke-width="11" stroke-linecap="round" '+
          'stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'"/></svg>'+
          '<div class="num"><b>'+total+'</b><span>总分 100</span></div></div>');
+  h.push('<div class="gbadge g'+g.toLowerCase()+'">等级 <b>'+g+'</b> '+gWord+'</div>');
   h.push('<div class="verdict">'+verdict+'</div>');
+  if(switchCount){
+    h.push('<div class="viol">本次答题切屏 '+switchCount+' 次'+
+           (switchCount>=SWITCH_LIMIT ? '，已达上限自动交卷。' : '。')+
+           ' 正式考试中离开答题界面会被判违规，练习时也尽量一次做完。</div>');
+  }
   h.push('<div class="brk"><div><b>'+right+'/'+N_MCQ+'</b><span>选择题 '+mScore+'分</span></div>'+
          '<div><b>'+fScore+'</b><span>填空题 /16分</span></div>'+
          '<div><b>'+used+'</b><span>用时</span></div></div>');
@@ -581,6 +674,8 @@ function showResult(total, mScore, fScore, fDetail){
 /* ---------- 启动 ---------- */
 function startExam(){
   paper = buildPaper();
+  switchCount = 0; forcedSubmit = false;
+  guard.classList.remove("on");
   renderQuiz();
   document.getElementById("start").hidden = true;
   document.getElementById("res").hidden = true;
@@ -595,6 +690,7 @@ function startExam(){
     document.getElementById("clock").textContent = fmtTime(Date.now()-startTime);
   }, 1000);
   document.getElementById("clock").textContent = "00:00";
+  examing = true;
 }
 
 function renderHist(){
@@ -603,7 +699,7 @@ function renderHist(){
   document.getElementById("histBox").style.display = "";
   document.getElementById("hist").innerHTML = hist.map(function(x){
     var d = new Date(x.d);
-    return '<i>'+(d.getMonth()+1)+'/'+d.getDate()+' · '+x.s+'分</i>';
+    return '<i>'+(d.getMonth()+1)+'/'+d.getDate()+' · '+x.s+'分 '+(x.g||gradeOf(x.s))+'</i>';
   }).join("");
 }
 
