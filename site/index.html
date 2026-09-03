@@ -42,7 +42,6 @@ input{font:inherit;color:inherit}
   color:#fff;border-radius:22px;padding:30px 24px 26px;box-shadow:var(--shadow);
 }
 .hero h1{margin:0 0 6px;font-size:27px;line-height:1.35;font-weight:700;letter-spacing:.01em}
-.hero p{margin:0;font-size:14px;opacity:.85;line-height:1.75}
 .specs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0 0}
 .spec{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 10px;text-align:center}
 .spec b{display:block;font-size:21px;color:var(--brand);line-height:1.25;font-variant-numeric:tabular-nums}
@@ -82,7 +81,12 @@ input{font:inherit;color:inherit}
 #progIn{height:100%;width:0;background:var(--brand);transition:width .25s}
 
 /* ---------- 题目 ---------- */
-#quiz{padding:16px 0 130px}
+/* 题干与选项禁止选中，堵住"长按复制去搜题"；填空输入框保持可编辑 */
+#quiz{
+  padding:16px 0 130px;
+  -webkit-user-select:none;-webkit-touch-callout:none;user-select:none;
+}
+#quiz .bk{-webkit-user-select:text;user-select:text}
 .sec{
   display:flex;align-items:center;gap:10px;margin:26px 2px 12px;
   font-size:13px;letter-spacing:.14em;color:var(--ink3);
@@ -229,7 +233,6 @@ input{font:inherit;color:inherit}
 <section id="start"><div class="wrap">
   <div class="hero">
     <h1>基础护理 · 中医基础<br>随机模拟测验</h1>
-    <p>每次进入自动抽取新试卷 · 手机端可直接作答</p>
   </div>
   <div class="specs">
     <div class="spec"><b>28</b><span>选择题 ×3分</span></div>
@@ -242,7 +245,7 @@ input{font:inherit;color:inherit}
       <li>单项选择题 <b>28</b> 道，每题 <b>3</b> 分，共 84 分；选项顺序每次随机打乱。</li>
       <li>填空大题 <b>2</b> 道，每道 8 个空、<b>每空 1 分</b>，共 16 分，按空给分。</li>
       <li>不限时，交卷后立即显示分数、等级与解析：<b>80 分及以上 A</b>、60～79 分 B、60 分以下 C。</li>
-      <li>答题期间<b>请勿切换到其他应用或页面</b>，累计切屏 <b>3</b> 次将自动交卷。</li>
+      <li>答题期间<b>请勿切屏、分屏或使用搜题悬浮窗</b>，题目也无法复制；累计离开答题界面 <b>2</b> 次将自动交卷。</li>
     </ul>
     <div id="histBox" style="display:none;margin-top:14px">
       <h2 style="margin-bottom:8px">最近成绩</h2>
@@ -351,7 +354,7 @@ var paper = null, startTime = 0, timer = null;
 
 /* 监考：切屏累计到 SWITCH_LIMIT 次自动交卷。
    浏览器无法阻止用户切走，只能在页面重新可见时发现并处置。 */
-var SWITCH_LIMIT = 3;
+var SWITCH_LIMIT = 2;
 var examing = false, switchCount = 0, forcedSubmit = false;
 
 function buildPaper(){
@@ -416,7 +419,7 @@ function updateProgress(){
   var tot = N_MCQ + paper.fill.length;
   var sub = document.getElementById("sub");
   sub.textContent = "已作答 " + done + " / " + tot + " 题"
-                  + (switchCount ? "　·　切屏 " + switchCount + "/" + SWITCH_LIMIT : "");
+                  + (switchCount ? "　·　离开 " + switchCount + "/" + SWITCH_LIMIT : "");
   sub.style.color = switchCount ? "var(--bad)" : "";
   document.getElementById("progIn").style.width = (done/tot*100) + "%";
 }
@@ -471,11 +474,11 @@ var guard = document.getElementById("guard");
 function showGuard(over){
   closeSheet();
   document.getElementById("guardIc").textContent = over ? "⛔" : "⚠️";
-  document.getElementById("guardTitle").textContent = over ? "切屏次数已用完，自动交卷" : "检测到离开答题页面";
+  document.getElementById("guardTitle").textContent = over ? "离开次数已用完，自动交卷" : "检测到离开答题界面";
   document.getElementById("guardText").innerHTML = over
-    ? "本次答题共切屏 <b>" + switchCount + "</b> 次，已达上限，试卷自动提交。"
-    : "已切屏 <b>" + switchCount + "</b> 次，还可切屏 " + (SWITCH_LIMIT - switchCount) +
-      " 次；累计满 " + SWITCH_LIMIT + " 次将自动交卷。";
+    ? "本次答题共离开答题界面 <b>" + switchCount + "</b> 次，已达上限，试卷自动提交。"
+    : "切屏、分屏或悬浮窗都会被记录。已离开 <b>" + switchCount + "</b> 次，还可离开 " +
+      (SWITCH_LIMIT - switchCount) + " 次；累计满 " + SWITCH_LIMIT + " 次将自动交卷。";
   document.getElementById("guardBtn").textContent = over ? "查 看 成 绩" : "继 续 答 题";
   guard.classList.add("on");
 }
@@ -487,17 +490,51 @@ document.getElementById("guardBtn").addEventListener("click", function(){
     gradeAndShow();
   }
 });
-document.addEventListener("visibilitychange", function(){
-  if(!examing) return;
-  if(document.hidden){
+/* 两路信号：
+   visibilitychange —— 切到别的应用、锁屏、切标签页
+   blur / focus     —— 页面还看得见但焦点被抢走：搜题悬浮窗、分屏小窗、地址栏
+   两者对同一次离开会同时触发，用 away 标志去重；再用 400ms 延迟过滤掉
+   点击输入框之类的瞬时失焦。 */
+var away = false, awayTimer = null;
+function leftPage(){ return document.hidden || !document.hasFocus(); }
+
+function maybeLeave(){
+  if(!examing || away || awayTimer) return;
+  awayTimer = setTimeout(function(){
+    awayTimer = null;
+    if(!examing || away || !leftPage()) return;
+    away = true;
     switchCount++;
     updateProgress();
-  }else if(switchCount >= SWITCH_LIMIT){
+  }, 400);
+}
+function maybeReturn(){
+  if(awayTimer){ clearTimeout(awayTimer); awayTimer = null; }
+  if(!away || leftPage()) return;
+  away = false;
+  if(!examing) return;
+  if(switchCount >= SWITCH_LIMIT){
     examing = false;
     forcedSubmit = true;
     showGuard(true);
   }else{
     showGuard(false);
+  }
+}
+document.addEventListener("visibilitychange", function(){
+  if(document.hidden) maybeLeave(); else maybeReturn();
+});
+window.addEventListener("blur", maybeLeave);
+window.addEventListener("focus", maybeReturn);
+
+/* 断掉"长按复制题干 → 粘贴到搜题 App"这条路 */
+var quizEl = document.getElementById("quiz");
+["contextmenu","copy","cut","dragstart"].forEach(function(ev){
+  quizEl.addEventListener(ev, function(e){ if(examing) e.preventDefault(); });
+});
+document.addEventListener("selectstart", function(e){
+  if(examing && quizEl.contains(e.target) && !(e.target.classList && e.target.classList.contains("bk"))){
+    e.preventDefault();
   }
 });
 
@@ -555,8 +592,9 @@ document.getElementById("submit").addEventListener("click", function(){
   paper.mcq.forEach(function(q){ if(q.pick===null) un++; });
   paper.fill.forEach(function(f){ f.vals.forEach(function(v){ if(v.trim()==="") un++; }); });
   var msg = un>0 ? ("还有 " + un + " 处未作答，确定交卷吗？") : "确定交卷吗？";
-  if(!confirm(msg)) return;
+  // 系统确认框会让窗口失焦，先停掉监考，免得把它算成一次切屏
   examing = false;
+  if(!confirm(msg)){ examing = true; return; }
   if(timer) clearInterval(timer);
   gradeAndShow();
 });
@@ -593,7 +631,7 @@ function showResult(total, mScore, fScore, fDetail){
   h.push('<div class="gbadge g'+g.toLowerCase()+'">等级 <b>'+g+'</b> '+gWord+'</div>');
   h.push('<div class="verdict">'+verdict+'</div>');
   if(switchCount){
-    h.push('<div class="viol">本次答题切屏 '+switchCount+' 次'+
+    h.push('<div class="viol">本次答题离开答题界面 '+switchCount+' 次'+
            (switchCount>=SWITCH_LIMIT ? '，已达上限自动交卷。' : '。')+
            ' 正式考试中离开答题界面会被判违规，练习时也尽量一次做完。</div>');
   }
@@ -674,7 +712,8 @@ function showResult(total, mScore, fScore, fDetail){
 /* ---------- 启动 ---------- */
 function startExam(){
   paper = buildPaper();
-  switchCount = 0; forcedSubmit = false;
+  switchCount = 0; forcedSubmit = false; away = false;
+  if(awayTimer){ clearTimeout(awayTimer); awayTimer = null; }
   guard.classList.remove("on");
   renderQuiz();
   document.getElementById("start").hidden = true;
