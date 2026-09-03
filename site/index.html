@@ -283,7 +283,7 @@ input{font:inherit;color:inherit}
 
 <div id="guard"><div class="mask"></div><div class="box">
   <div class="ic" id="guardIc">⚠️</div>
-  <h3 id="guardTitle">检测到离开答题页面</h3>
+  <h3 id="guardTitle">检测到离开答题界面</h3>
   <p id="guardText"></p>
   <button id="guardBtn">继 续 答 题</button>
 </div></div>
@@ -527,6 +527,18 @@ document.addEventListener("visibilitychange", function(){
 window.addEventListener("blur", maybeLeave);
 window.addEventListener("focus", maybeReturn);
 
+/* 轮询兜底：个别浏览器/webview 不派发 blur，靠轮询也能发现焦点被抢走。
+   连续失焦约 0.7 秒才计数，避免误判。 */
+var focusPoll = null;
+function startFocusPoll(){
+  stopFocusPoll();
+  focusPoll = setInterval(function(){
+    if(!examing) return;
+    if(leftPage()) maybeLeave(); else maybeReturn();
+  }, 300);
+}
+function stopFocusPoll(){ if(focusPoll){ clearInterval(focusPoll); focusPoll = null; } }
+
 /* 断掉"长按复制题干 → 粘贴到搜题 App"这条路 */
 var quizEl = document.getElementById("quiz");
 ["contextmenu","copy","cut","dragstart"].forEach(function(ev){
@@ -563,6 +575,7 @@ function blankOK(user, accepts){
 
 /* ---------- 交卷 ---------- */
 function gradeAndShow(){
+  stopFocusPoll();
   var mScore = 0;
   paper.mcq.forEach(function(q){ if(q.pick===q.ans) mScore += PT_MCQ; });
   var fScore = 0, fDetail = [];
@@ -730,6 +743,7 @@ function startExam(){
   }, 1000);
   document.getElementById("clock").textContent = "00:00";
   examing = true;
+  startFocusPoll();
 }
 
 function renderHist(){
